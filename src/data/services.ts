@@ -137,8 +137,8 @@ export const serviceCategories = [
 ];
 
 export const priceRanges = [
-  { label: 'Under $3,000', min: 0, max: 3000 },
-  { label: '$3,000 - $5,000', min: 3000, max: 5000 },
-  { label: '$5,000 - $8,000', min: 5000, max: 8000 },
-  { label: 'Over $8,000', min: 8000, max: Infinity }
+  { label: 'Under ₹3,000', min: 0, max: 3000 },
+  { label: '₹3,000 - ₹5,000', min: 3000, max: 5000 },
+  { label: '₹5,000 - ₹8,000', min: 5000, max: 8000 },
+  { label: 'Over ₹8,000', min: 8000, max: Infinity }
 ];

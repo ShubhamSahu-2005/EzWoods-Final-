@@ -1,140 +1,125 @@
-"use client"
-import  Link  from 'next/link';
-import { Heart, ShoppingCart, Star } from 'lucide-react';
+"use client";
+
+import Link from 'next/link';
+import Image from 'next/image';
+import { Heart, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Product } from '@/types/product';
+import { IProduct } from '@/models/product';
 import { useCart } from '@/contexts/CartContext';
 import { useState } from 'react';
 
 interface ProductCardProps {
-  product: Product;
+  product: IProduct;
+  viewMode?: 'grid' | 'list'; // To handle different layouts
 }
 
-const ProductCard = ({ product }: ProductCardProps) => {
+const ProductCard = ({ product, viewMode = 'grid' }: ProductCardProps) => {
   const { addItem } = useCart();
   const [isLiked, setIsLiked] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
 
-  const handleAddToCart = async (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent link navigation
+    e.stopPropagation(); // Stop the event from bubbling up to the Link component
     setIsAdding(true);
     addItem(product);
-    
-    // Brief animation delay
     setTimeout(() => setIsAdding(false), 600);
   };
 
   const handleLike = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const newLikedState = !isLiked;
-    setIsLiked(newLikedState);
-
-    const wishlistData = {
-      action: newLikedState ? 'ADD_TO_WISHLIST' : 'REMOVE_FROM_WISHLIST',
-      productId: product.id,
-      productName: product.name,
-      productPrice: product.price,
-      timestamp: new Date().toISOString()
-    };
-
-    console.log('Wishlist Action:', wishlistData);
+    e.preventDefault(); // Prevent link navigation
+    e.stopPropagation(); // Stop the event from bubbling up to the Link component
+    setIsLiked(!isLiked);
   };
-
-  return (
-    <Card className="group cursor-pointer transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 border-furniture-sand bg-white/80 backdrop-blur-sm">
-      <Link href={`/product/${product.id}`}>
-        <div className="relative overflow-hidden rounded-t-lg">
-          <img
-            src={product.images[0]}
-            alt={product.name}
-            className="w-full h-64 object-cover transition-all duration-700 group-hover:scale-110 group-hover:brightness-110"
-          />
-          
-          {/* Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-          {/* Sale Badge */}
-          {product.originalPrice && (
-            <div className="absolute top-3 left-3 bg-furniture-brown text-white px-3 py-1 text-xs font-medium rounded-full animate-pulse shadow-lg">
-              Sale
+  
+  // Grid View Layout
+  if (viewMode === 'grid') {
+    return (
+      <Card className="group transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 border-furniture-sand bg-white/80 backdrop-blur-sm">
+        <Link href={`/product/${product._id}`} className="block cursor-pointer">
+          <div className="relative overflow-hidden rounded-t-lg">
+            <Image
+              src={product.images[0]}
+              alt={product.name}
+              width={400}
+              height={400}
+              className="w-full h-64 object-cover transition-all duration-700 group-hover:scale-110"
+            />
+            {/* Action Buttons */}
+            <div className="absolute top-3 right-3 flex flex-col space-y-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-4 group-hover:translate-x-0">
+              <Button variant="secondary" size="icon" className="w-10 h-10 bg-white/90" onClick={handleLike}>
+                <Heart className={`w-4 h-4 transition-all duration-300 ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
+              </Button>
+              <Button variant="secondary" size="icon" className="w-10 h-10 bg-white/90" onClick={handleAddToCart} disabled={product.stock <= 0}>
+                <ShoppingCart className={`w-4 h-4 transition-all duration-300 ${isAdding ? 'text-green-600' : 'text-gray-600'}`} />
+              </Button>
             </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="absolute top-3 right-3 flex flex-col space-y-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-4 group-hover:translate-x-0">
-            <Button
-              variant="secondary"
-              size="sm"
-              className={`w-10 h-10 p-0 bg-white/90 backdrop-blur-sm hover:bg-white transition-all duration-300 hover:scale-110 ${isLiked ? 'scale-110' : ''}`}
-              onClick={handleLike}
-            >
-              <Heart 
-                className={`w-4 h-4 transition-all duration-300 ${
-                  isLiked 
-                    ? 'fill-red-500 text-red-500 scale-110' 
-                    : 'text-gray-600 hover:text-red-400'
-                }`} 
-              />
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              className={`w-10 h-10 p-0 bg-white/90 backdrop-blur-sm hover:bg-white transition-all duration-300 hover:scale-110 ${isAdding ? 'scale-95' : ''}`}
-              onClick={handleAddToCart}
-              disabled={!product.inStock}
-            >
-              <ShoppingCart className={`w-4 h-4 text-gray-600 transition-all duration-300 ${isAdding ? 'text-green-600' : 'hover:text-furniture-brown'}`} />
-            </Button>
-          </div>
-
-          {/* Stock Status */}
-          {!product.inStock && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
-              <span className="text-white font-medium px-4 py-2 bg-black/30 rounded-full">Out of Stock</span>
-            </div>
-          )}
-        </div>
-
-        <CardContent className="p-6 bg-gradient-to-b from-white to-furniture-cream/10">
-          <div className="flex items-center space-x-1 mb-3">
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                className={`w-3 h-3 transition-all duration-300 ${
-                  i < Math.floor(product.rating) 
-                    ? 'fill-yellow-400 text-yellow-400 scale-110' 
-                    : 'text-gray-300'
-                }`}
-              />
-            ))}
-            <span className="text-xs text-gray-500 ml-2 opacity-70 group-hover:opacity-100 transition-opacity duration-300">
-              ({product.reviewCount})
-            </span>
-          </div>
-
-          <h3 className="font-inter font-semibold text-furniture-charcoal mb-2 group-hover:text-furniture-brown transition-all duration-300 leading-tight">
-            {product.name}
-          </h3>
-          
-          <p className="text-sm text-gray-600 mb-3 opacity-80 group-hover:opacity-100 transition-opacity duration-300">
-            {product.category}
-          </p>
-          
-          <div className="flex items-center space-x-3">
-            <span className="font-playfair font-bold text-lg text-furniture-darkBrown group-hover:scale-105 transition-transform duration-300">
-              ${product.price}
-            </span>
-            {product.originalPrice && (
-              <span className="text-sm text-gray-500 line-through opacity-60">
-                ${product.originalPrice}
-              </span>
+            {product.stock <= 0 && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
+                <span className="text-white font-medium px-4 py-2 bg-black/30 rounded-full">Out of Stock</span>
+              </div>
             )}
           </div>
-        </CardContent>
+          <CardContent className="p-6">
+             <h3 className="font-inter font-semibold text-furniture-charcoal mb-2 group-hover:text-furniture-brown transition-colors duration-300 leading-tight truncate">
+              {product.name}
+            </h3>
+            <p className="text-sm text-gray-600 mb-3">{product.categoryName}</p>
+            <div className="font-playfair font-bold text-lg text-furniture-darkBrown">
+              ₹
+              {typeof product.price?.original === 'number'
+                ? Number(product.price.original).toFixed(2)
+                : typeof product.price === 'number'
+                  ? Number(product.price).toFixed(2)
+                  : '0.00'}
+            </div>
+          </CardContent>
+        </Link>
+      </Card>
+    );
+  }
+
+  // List View Layout
+  return (
+    <Card className="group transition-all duration-300 hover:shadow-lg border-furniture-sand bg-white/80 backdrop-blur-sm w-full">
+      <Link href={`/product/${product._id}`} className="flex flex-col sm:flex-row gap-4 cursor-pointer">
+        <Image
+          src={product.images[0]}
+          alt={product.name}
+          width={200}
+          height={200}
+          className="w-full sm:w-48 h-48 sm:h-full object-cover rounded-t-lg sm:rounded-l-lg sm:rounded-r-none"
+        />
+        <div className="p-4 flex flex-col justify-between flex-1">
+          <div>
+            <p className="text-sm text-gray-500 mb-1">{product.categoryName}</p>
+            <h3 className="font-inter font-semibold text-lg text-furniture-charcoal mb-2 group-hover:text-furniture-brown transition-colors duration-300">
+              {product.name}
+            </h3>
+            <p className="text-sm text-gray-600 hidden md:block">
+              {product.description.substring(0, 100)}...
+            </p>
+          </div>
+          <div className="flex items-center justify-between mt-4">
+            <span className="font-playfair font-bold text-xl text-furniture-darkBrown">
+              ₹
+              {typeof product.price?.original === 'number'
+                ? Number(product.price.original).toFixed(2)
+                : typeof product.price === 'number'
+                  ? Number(product.price).toFixed(2)
+                  : '0.00'}
+            </span>
+            <Button onClick={handleAddToCart} disabled={product.stock <= 0} size="sm">
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              Add to Cart
+            </Button>
+          </div>
+        </div>
       </Link>
     </Card>
   );
 };
 
 export default ProductCard;
+

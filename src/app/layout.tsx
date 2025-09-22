@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import  Header  from "@/components/Header";
 import Footer from "@/components/Footer";
+import { Toaster } from "@/components/ui/toaster";
 import { ClerkProvider } from "@clerk/nextjs";
 import "@/app/globals.css";
 import { Providers } from "./providers";
@@ -32,11 +33,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ClerkProvider>
-        <Providers>
-          <Header />
-          {children}
-          <Footer />
-        </Providers>
+          <Providers>
+            <Header />
+            {children}
+            <Footer />
+          </Providers>
+          <Toaster />
         </ClerkProvider>
       </body>
     </html>

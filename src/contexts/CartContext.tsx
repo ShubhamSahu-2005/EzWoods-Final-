@@ -1,6 +1,13 @@
 "use client"
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { CartItem, Product } from '@/types/product';
+import { IProduct } from '@/models/product';
+
+// Define CartItem interface for the cart context
+interface CartItem {
+  product: IProduct;
+  quantity: number;
+  selectedColor?: string;
+}
 
 interface CartState {
   items: CartItem[];
@@ -9,7 +16,7 @@ interface CartState {
 }
 
 type CartAction =
-  | { type: 'ADD_ITEM'; payload: { product: Product; quantity: number; selectedColor?: string } }
+  | { type: 'ADD_ITEM'; payload: { product: IProduct; quantity: number; selectedColor?: string } }
   | { type: 'REMOVE_ITEM'; payload: string }
   | { type: 'UPDATE_QUANTITY'; payload: { productId: string; quantity: number } }
   | { type: 'CLEAR_CART' };
@@ -20,18 +27,29 @@ const initialState: CartState = {
   itemCount: 0
 };
 
+// Helper function to safely get product price
+const getProductPrice = (product: IProduct): number => {
+  if (product.price && typeof product.price === 'object' && 'original' in product.price && typeof product.price.original === 'number') {
+    return product.price.original;
+  }
+  if (typeof product.price === 'number') {
+    return product.price;
+  }
+  return 0;
+};
+
 const cartReducer = (state: CartState, action: CartAction): CartState => {
   switch (action.type) {
     case 'ADD_ITEM': {
       const { product, quantity, selectedColor } = action.payload;
       const existingItem = state.items.find(
-        item => item.product.id === product.id && item.selectedColor === selectedColor
+        item => item.product._id?.toString() === product._id?.toString() && item.selectedColor === selectedColor
       );
 
       let newItems;
       if (existingItem) {
         newItems = state.items.map(item =>
-          item.product.id === product.id && item.selectedColor === selectedColor
+          item.product._id?.toString() === product._id?.toString() && item.selectedColor === selectedColor
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
@@ -39,15 +57,15 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         newItems = [...state.items, { product, quantity, selectedColor }];
       }
 
-      const total = newItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+      const total = newItems.reduce((sum, item) => sum + (getProductPrice(item.product) * item.quantity), 0);
       const itemCount = newItems.reduce((sum, item) => sum + item.quantity, 0);
 
       return { items: newItems, total, itemCount };
     }
 
     case 'REMOVE_ITEM': {
-      const newItems = state.items.filter(item => item.product.id !== action.payload);
-      const total = newItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+      const newItems = state.items.filter(item => item.product._id?.toString() !== action.payload);
+      const total = newItems.reduce((sum, item) => sum + (getProductPrice(item.product) * item.quantity), 0);
       const itemCount = newItems.reduce((sum, item) => sum + item.quantity, 0);
 
       return { items: newItems, total, itemCount };
@@ -60,9 +78,9 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       }
 
       const newItems = state.items.map(item =>
-        item.product.id === productId ? { ...item, quantity } : item
+        item.product._id?.toString() === productId ? { ...item, quantity } : item
       );
-      const total = newItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+      const total = newItems.reduce((sum, item) => sum + (getProductPrice(item.product) * item.quantity), 0);
       const itemCount = newItems.reduce((sum, item) => sum + item.quantity, 0);
 
       return { items: newItems, total, itemCount };
@@ -78,7 +96,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
 
 const CartContext = createContext<{
   state: CartState;
-  addItem: (product: Product, quantity?: number, selectedColor?: string) => void;
+  addItem: (product: IProduct, quantity?: number, selectedColor?: string) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -87,20 +105,20 @@ const CartContext = createContext<{
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(cartReducer, initialState);
 
-  const addItem = (product: Product, quantity = 1, selectedColor?: string) => {
+  const addItem = (product: IProduct, quantity = 1, selectedColor?: string) => {
     const cartData = {
       action: 'ADD_TO_CART',
       product: {
-        id: product.id,
+        id: product._id?.toString(),
         name: product.name,
-        price: product.price,
-        category: product.category,
-        inStock: product.inStock
+        price: getProductPrice(product),
+        category: product.categoryName,
+        stock: product.stock
       },
       quantity,
       selectedColor,
       timestamp: new Date().toISOString(),
-      totalValue: product.price * quantity
+      totalValue: getProductPrice(product) * quantity
     };
     
     console.log('Cart Action - Add Item:', cartData);
