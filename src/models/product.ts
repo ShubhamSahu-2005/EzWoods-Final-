@@ -5,7 +5,11 @@ import { ICategory } from './category'; // Import for type safety
 
 // --- Sub-document Interfaces ---
 export interface IReview extends Document {
-  user: { name: string; avatar: string; };
+  user: { 
+    name: string; 
+    avatar: string; 
+    clerkId: string; // Add Clerk user ID for proper user identification
+  };
   title: string;
   body: string;
   images: string[];
@@ -40,7 +44,11 @@ export interface IProduct extends Document {
 }
 
 const ReviewSchema: Schema = new Schema({
-    user: { name: { type: String, required: true }, avatar: { type: String } },
+    user: { 
+      name: { type: String, required: true }, 
+      avatar: { type: String },
+      clerkId: { type: String, required: true } // Add Clerk user ID
+    },
     title: { type: String, required: true },
     body: { type: String, required: true },
     images: [{ type: String }],

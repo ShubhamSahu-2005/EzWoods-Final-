@@ -63,22 +63,22 @@ const Shop = () => {
   }, [selectedCategory, sortBy]);
 
   // Function to seed the database
-  const seedDatabase = async () => {
-    try {
-      const response = await fetch('/api/seed', { method: 'POST' });
-      const data = await response.json();
-      if (data.success) {
-        alert('Database seeded successfully!');
-        // Refresh the products
-        window.location.reload();
-      } else {
-        alert('Failed to seed database: ' + data.message);
-      }
-    } catch (error) {
-      console.error('Failed to seed database:', error);
-      alert('Failed to seed database');
-    }
-  };
+  // const seedDatabase = async () => {
+  //   try {
+  //     const response = await fetch('/api/seed', { method: 'POST' });
+  //     const data = await response.json();
+  //     if (data.success) {
+  //       alert('Database seeded successfully!');
+  //       // Refresh the products
+  //       window.location.reload();
+  //     } else {
+  //       alert('Failed to seed database: ' + data.message);
+  //     }
+  //   } catch (error) {
+  //     console.error('Failed to seed database:', error);
+  //     alert('Failed to seed database');
+  //   }
+  // };
 
   // Effect to fetch categories for the filter sidebar only once
   useEffect(() => {

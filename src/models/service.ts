@@ -4,7 +4,11 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 // Reusable interface for reviews
 export interface IReview extends Document {
-  user: { name: string; avatar: string; };
+  user: { 
+    name: string; 
+    avatar: string; 
+    clerkId: string; // Match product model exactly
+  };
   title: string;
   body: string;
   images: string[];
@@ -26,7 +30,11 @@ export interface IService extends Document {
 
 // Reusable schema for nested reviews
 const ReviewSchema: Schema = new Schema({
-  user: { name: { type: String, required: true }, avatar: { type: String } },
+  user: { 
+    name: { type: String, required: true }, 
+    avatar: { type: String },
+    clerkId: { type: String, required: true } // Match product model exactly
+  },
   title: { type: String, required: true },
   body: { type: String, required: true },
   images: [{ type: String }],

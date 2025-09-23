@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { Star, Heart, Truck, Shield, RotateCcw, Plus, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,47 +8,41 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCart } from '@/contexts/CartContext';
+import { useWishlist } from '@/contexts/WishlistContext';
 import { useToast } from '@/components/ui/use-toast';
 import ReviewForm from '@/components/reviews/ReviewForm';
 import ReviewDisplay from '@/components/reviews/ReviewDisplay';
-import { IProduct } from '@/models/product';
-import { Review } from '@/types/product';
+import { IProduct } from '@/models/product'; // Using the interface from your Mongoose model
 
-// Define the shape of the data coming from the review form
+// Define the shape of the data submitted by the review form
 interface ReviewFormData {
   rating: number;
   title: string;
   comment: string;
-  images?: File[];
+  images: string[];
 }
 
-// Mock reviews data now uses the Review type for consistency
-const mockReviews: Review[] = [
-  { id: '1', userId: 'user_abc123', userName: 'Sarah J.', rating: 5, title: 'Absolutely love this piece!', comment: 'The quality is exceptional and it looks even better in person.', verified: true, helpful: 12, createdAt: '2025-01-15' },
-  { id: '2', userId: 'user_def456', userName: 'Mike C.', rating: 4, title: 'Great quality, fast delivery', comment: 'Really impressed with the build quality. Assembly was straightforward.', verified: true, helpful: 8, createdAt: '2025-01-10' }
-];
-
-// This is the Client Component that receives product data as a prop
-const ProductClient = ({ product }: { product: IProduct }) => {
+const ProductClient = ({ product, productId }: { product: IProduct; productId: string }) => {
   const { addItem } = useCart();
+  const { addToWishlist, removeFromWishlist, isInWishlist, loading: wishlistLoading } = useWishlist();
   const { toast } = useToast();
   
-  // Helper function to safely get product price
-  const getProductPrice = (product: IProduct): number => {
-    if (product.price && typeof product.price === 'object' && 'original' in product.price && typeof product.price.original === 'number') {
-      return product.price.original;
-    }
-    if (typeof product.price === 'number') {
-      return product.price;
-    }
-    return 0;
-  };
-  
-  // State for interactive elements
   const [selectedImage, setSelectedImage] = useState(0);
-  const [selectedColor, setSelectedColor] = useState(product.material ? product.material[0] : '');
+  // Safely initialize selectedColor from the product's material array
+  const [selectedColor, setSelectedColor] = useState(product.material?.[0] || '');
   const [quantity, setQuantity] = useState(1);
-  const [isLiked, setIsLiked] = useState(false);
+  
+  // Check if product is in wishlist
+  const isInWishlistProduct = isInWishlist(productId);
+
+  // Dynamically calculate the average rating from the product's reviews
+  const averageRating = useMemo(() => {
+    if (!product.reviews || product.reviews.length === 0) {
+      return 0;
+    }
+    const totalRating = product.reviews.reduce((acc, review) => acc + review.rating, 0);
+    return totalRating / product.reviews.length;
+  }, [product.reviews]);
 
   const handleAddToCart = () => {
     addItem(product, quantity, selectedColor);
@@ -58,11 +52,53 @@ const ProductClient = ({ product }: { product: IProduct }) => {
     });
   };
 
-  // FIX: Replaced 'any' with the specific 'ReviewFormData' type
-  const handleReviewSubmit = (reviewData: ReviewFormData) => {
-    console.log('Review submitted:', reviewData);
-    // In a real app, this would be a Server Action or an API call to save the review
-    toast({ title: "Review Submitted", description: "Thank you for your feedback!" });
+  const handleWishlistToggle = async () => {
+    if (isInWishlistProduct) {
+      await removeFromWishlist(productId);
+    } else {
+      await addToWishlist(productId);
+    }
+  };
+
+  const handleReviewSubmit = async (reviewData: ReviewFormData) => {
+    try {
+      const response = await fetch(`/api/products/${productId}/review`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rating: reviewData.rating,
+          title: reviewData.title,
+          comment: reviewData.comment,
+          images: reviewData.images,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast({ 
+          title: "Review Submitted", 
+          description: "Thank you for your valuable feedback!" 
+        });
+        // Optionally refresh the page to show the new review
+        window.location.reload();
+      } else {
+        toast({ 
+          title: "Error", 
+          description: result.message || "Failed to submit review. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to submit review. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
   
   const features = [
@@ -83,7 +119,7 @@ const ProductClient = ({ product }: { product: IProduct }) => {
               width={600}
               height={600}
               className="w-full h-full object-cover transition-opacity duration-300"
-              priority // Prioritize loading the main product image
+              priority
             />
           </div>
           <div className="flex space-x-4">
@@ -115,30 +151,28 @@ const ProductClient = ({ product }: { product: IProduct }) => {
             <div className="flex items-center space-x-2 mb-4">
               <div className="flex items-center">
                 {[...Array(5)].map((_, i) => (
-                  <Star key={i} className={`w-4 h-4 ${i < Math.floor(4.5) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                  <Star key={i} className={`w-4 h-4 ${i < Math.floor(averageRating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
                 ))}
               </div>
-              <span className="font-inter text-sm text-gray-600">4.5 ({product.reviews?.length || 0} reviews)</span>
+              <span className="font-inter text-sm text-gray-600">{averageRating.toFixed(1)} ({product.reviews?.length || 0} reviews)</span>
             </div>
             <div className="flex items-center space-x-3 mb-6">
-              <span className="font-playfair text-3xl font-bold text-furniture-darkBrown">₹{getProductPrice(product).toFixed(2)}</span>
-              {product.price?.discounted && (
+              <span className="font-playfair text-3xl font-bold text-furniture-darkBrown">₹{product.price.original.toFixed(2)}</span>
+              {product.price.discounted && (
                 <span className="text-xl text-gray-500 line-through">₹{product.price.discounted.toFixed(2)}</span>
               )}
             </div>
           </div>
 
-          <div>
-            <p className="font-inter text-furniture-charcoal leading-relaxed">{product.description}</p>
-          </div>
+          <p className="font-inter text-furniture-charcoal leading-relaxed">{product.description}</p>
 
           {product.material && product.material.length > 0 && (
             <div>
-              <h3 className="font-inter font-semibold mb-3">Color</h3>
+              <h3 className="font-inter font-semibold mb-3">Material / Color</h3>
               <Select value={selectedColor} onValueChange={setSelectedColor}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Select a color" /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Select an option" /></SelectTrigger>
                 <SelectContent>
-                  {product.material.map((material) => (<SelectItem key={material} value={material}>{material}</SelectItem>))}
+                  {product.material.map((mat) => (<SelectItem key={mat} value={mat}>{mat}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
@@ -161,8 +195,14 @@ const ProductClient = ({ product }: { product: IProduct }) => {
             <Button onClick={handleAddToCart} disabled={product.stock <= 0} className="flex-1 bg-furniture-brown hover:bg-furniture-darkBrown font-inter" size="lg">
               {product.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
             </Button>
-            <Button variant="outline" size="lg" onClick={() => setIsLiked(!isLiked)} className="px-6">
-              <Heart className={`w-5 h-5 transition-all duration-300 ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
+            <Button 
+              variant="outline" 
+              size="lg" 
+              onClick={handleWishlistToggle} 
+              disabled={wishlistLoading}
+              className="px-6"
+            >
+              <Heart className={`w-5 h-5 transition-all duration-300 ${isInWishlistProduct ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
             </Button>
           </div>
           
@@ -181,7 +221,7 @@ const ProductClient = ({ product }: { product: IProduct }) => {
       <Tabs defaultValue="reviews" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-8">
             <TabsTrigger value="specifications">Specifications</TabsTrigger>
-            <TabsTrigger value="reviews">Reviews ({mockReviews.length})</TabsTrigger>
+            <TabsTrigger value="reviews">Reviews ({product.reviews?.length || 0})</TabsTrigger>
         </TabsList>
         <TabsContent value="specifications">
              <Card className="border-furniture-sand">
@@ -190,14 +230,14 @@ const ProductClient = ({ product }: { product: IProduct }) => {
                  <div className="space-y-3 text-sm">
                    {product.dimensions && (
                      <div className="flex justify-between border-b pb-2">
-                       <span className="text-gray-600">Dimensions (cm):</span>
+                       <span className="text-gray-600">Dimensions ({product.dimensions.unit}):</span>
                        <span className="font-medium">{`${product.dimensions.width} W x ${product.dimensions.depth} D x ${product.dimensions.height} H`}</span>
                      </div>
                    )}
-                    {product.material && (
-                      <div className="flex justify-between border-b pb-2">
-                        <span className="text-gray-600">Materials:</span>
-                        <span className="font-medium">{product.material.join(', ')}</span>
+                   {product.material && product.material.length > 0 && (
+                     <div className="flex justify-between border-b pb-2">
+                       <span className="text-gray-600">Materials:</span>
+                       <span className="font-medium">{product.material.join(', ')}</span>
                      </div>
                    )}
                  </div>
@@ -208,7 +248,15 @@ const ProductClient = ({ product }: { product: IProduct }) => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">
                     <h3 className="font-playfair text-xl font-semibold mb-6">Customer Reviews</h3>
-                    <ReviewDisplay reviews={mockReviews} />
+                    {/* Pass IReview directly to ReviewDisplay */}
+                    <ReviewDisplay 
+                      productId={productId}
+                      reviews={product.reviews || []} 
+                      onReviewDeleted={() => {
+                        // Refresh the page to show updated reviews
+                        window.location.reload();
+                      }}
+                    />
                 </div>
                 <div>
                     <ReviewForm onSubmit={handleReviewSubmit} />

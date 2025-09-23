@@ -1,53 +1,58 @@
-import connectDB from '@/utils/connectDB';
-import { Product } from '@/models/product';
 import { notFound } from 'next/navigation';
 import ProductClient from '@/components/products/ProductClient';
 import type { Metadata } from 'next';
+import { IProduct } from '@/models/product';
 
-export async function generateMetadata({ params }: { params: Promise<{ productId: string }> }): Promise<Metadata> {
+// This helper function now fetches data from your API endpoint
+async function getProductDetails(productId: string): Promise<IProduct | null> {
   try {
-    await connectDB();
-    const { productId } = await params;
-    const product = await Product.findById(productId).lean();
-    
-    if (!product) {
-      return { title: 'Product Not Found' };
+    // Use absolute URL for server-side fetch
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const res = await fetch(`${baseUrl}/api/products/${productId}`, {
+      cache: 'no-store', // Ensures you always get the latest product data
+    });
+   
+
+    if (!res.ok) {
+      // If the API returns a 404 or other error, return null
+      return null;
     }
 
-    // Ensure product is not an array and has the expected properties
-    const productObj = Array.isArray(product) ? product[0] : product;
-
-    return {
-      title: `${productObj?.name ?? 'Product'} | Luxe Home`,
-      description: productObj?.description ?? '',
-    };
+    const data = await res.json();
+    console.log(data)
+    return data.success ? data.data : null;
   } catch (error) {
-    console.error('Failed to generate metadata:', error);
-    return { title: 'Error' };
+    console.error('Failed to fetch product details:', error);
+    return null; // Return null on any exception
   }
 }
 
+// generateMetadata also uses the new API fetching function
+export async function generateMetadata({ params }: { params: Promise<{ productId: string }> }): Promise<Metadata> {
+  const { productId } = await params;
+  const product = await getProductDetails(productId);
+  
+  if (!product) {
+    return { title: 'Product Not Found' };
+  }
+
+  return {
+    title: `${product.name} | Luxe Home`,
+    description: product.description,
+  };
+}
+
+// This remains a Server Component, but its data source is now the API
 export default async function ProductDetailPage({ params }: { params: Promise<{ productId: string }> }) {
-  try {
-    await connectDB();
-    const { productId } = await params;
+  const { productId } = await params;
+  const product = await getProductDetails(productId);
 
-    const product = await Product.findById(productId);
-
-    if (!product) {
-      notFound();
-    }
-
-    // FIX: Convert the Mongoose document to a plain JavaScript object
-    // This makes it serializable and safe to pass from a Server to a Client Component.
-    const plainProduct = JSON.parse(JSON.stringify(product));
-    
-    // If found, pass the plain data object to the Client Component
-    return <ProductClient product={plainProduct} />;
-
-  } catch (error) {
-    console.error('Error fetching product:', error);
-    // If the ID is not a valid MongoDB ObjectId, findById will throw an error
+  // If the API call fails or returns no product, show the 404 page
+  if (!product) {
     notFound();
   }
+  
+  // The API already returns a plain JSON object, so no need for JSON.parse(JSON.stringify())
+  return <ProductClient product={product} productId={productId} />;
 }
+

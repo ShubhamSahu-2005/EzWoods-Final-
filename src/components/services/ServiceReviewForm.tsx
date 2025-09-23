@@ -18,11 +18,12 @@ interface ReviewSubmitData {
   images: string[]; // This will be an array of base64 strings
 }
 
-interface ReviewFormProps {
+interface ServiceReviewFormProps {
+  serviceId: string;
   onSubmit: (reviewData: ReviewSubmitData) => void;
 }
 
-const ReviewForm: FC<ReviewFormProps> = ({ onSubmit }) => {
+const ServiceReviewForm: FC<ServiceReviewFormProps> = ({ serviceId, onSubmit }) => {
   const { toast } = useToast();
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -166,7 +167,7 @@ const ReviewForm: FC<ReviewFormProps> = ({ onSubmit }) => {
               id="comment"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Tell us more about your experience..."
+              placeholder="Tell us more about your experience with this service..."
               className="mt-2 min-h-[120px]"
               required
             />
@@ -234,5 +235,4 @@ const ReviewForm: FC<ReviewFormProps> = ({ onSubmit }) => {
   );
 };
 
-export default ReviewForm;
-
+export default ServiceReviewForm;

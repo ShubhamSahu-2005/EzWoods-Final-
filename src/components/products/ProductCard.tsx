@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { IProduct } from '@/models/product';
 import { useCart } from '@/contexts/CartContext';
+import { useWishlist } from '@/contexts/WishlistContext';
 import { useState } from 'react';
 
 interface ProductCardProps {
@@ -16,8 +17,10 @@ interface ProductCardProps {
 
 const ProductCard = ({ product, viewMode = 'grid' }: ProductCardProps) => {
   const { addItem } = useCart();
-  const [isLiked, setIsLiked] = useState(false);
+  const { addToWishlist, removeFromWishlist, isInWishlist, loading: wishlistLoading } = useWishlist();
   const [isAdding, setIsAdding] = useState(false);
+  
+  const isInWishlistProduct = isInWishlist(product._id?.toString() || '');
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent link navigation
@@ -27,10 +30,15 @@ const ProductCard = ({ product, viewMode = 'grid' }: ProductCardProps) => {
     setTimeout(() => setIsAdding(false), 600);
   };
 
-  const handleLike = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent link navigation
-    e.stopPropagation(); // Stop the event from bubbling up to the Link component
-    setIsLiked(!isLiked);
+  const handleWishlistToggle = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isInWishlistProduct) {
+      await removeFromWishlist(product._id?.toString() || '');
+    } else {
+      await addToWishlist(product._id?.toString() || '');
+    }
   };
   
   // Grid View Layout
@@ -48,8 +56,14 @@ const ProductCard = ({ product, viewMode = 'grid' }: ProductCardProps) => {
             />
             {/* Action Buttons */}
             <div className="absolute top-3 right-3 flex flex-col space-y-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-4 group-hover:translate-x-0">
-              <Button variant="secondary" size="icon" className="w-10 h-10 bg-white/90" onClick={handleLike}>
-                <Heart className={`w-4 h-4 transition-all duration-300 ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
+              <Button 
+                variant="secondary" 
+                size="icon" 
+                className="w-10 h-10 bg-white/90" 
+                onClick={handleWishlistToggle}
+                disabled={wishlistLoading}
+              >
+                <Heart className={`w-4 h-4 transition-all duration-300 ${isInWishlistProduct ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
               </Button>
               <Button variant="secondary" size="icon" className="w-10 h-10 bg-white/90" onClick={handleAddToCart} disabled={product.stock <= 0}>
                 <ShoppingCart className={`w-4 h-4 transition-all duration-300 ${isAdding ? 'text-green-600' : 'text-gray-600'}`} />

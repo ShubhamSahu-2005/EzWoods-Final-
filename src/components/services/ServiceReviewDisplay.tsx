@@ -7,18 +7,19 @@ import { Star, ThumbsUp, Calendar, CheckCircle, ChevronLeft, ChevronRight, Trash
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
-import { IReview } from '@/models/product'; // Using the interface from your Mongoose model
+import { IReview } from '@/models/service'; // Using the interface from your Service Mongoose model
 
-interface ReviewDisplayProps {
-  productId: string;
+interface ServiceReviewDisplayProps {
+  serviceId: string;
   reviews: IReview[];
   onReviewDeleted?: (reviewId: string) => void; // Optional callback to update parent state
 }
 
-const ReviewDisplay: FC<ReviewDisplayProps> = ({ productId, reviews, onReviewDeleted }) => {
-  const { user } = useUser(); // Get the currently logged-in user
+const ServiceReviewDisplay: FC<ServiceReviewDisplayProps> = ({ serviceId, reviews, onReviewDeleted }) => {
+  const { user, isLoaded } = useUser(); // Get the currently logged-in user
   const { toast } = useToast();
   const [helpfulReviews, setHelpfulReviews] = useState<Set<string>>(new Set());
+
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -29,8 +30,9 @@ const ReviewDisplay: FC<ReviewDisplayProps> = ({ productId, reviews, onReviewDel
   const handleDelete = async (reviewId: string) => {
     if (!confirm('Are you sure you want to delete this review? This action cannot be undone.')) return;
     
+    
     try {
-      const response = await fetch(`/api/products/${productId}/review`, {
+      const response = await fetch(`/api/services/${serviceId}/review`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reviewId }),
@@ -87,10 +89,19 @@ const ReviewDisplay: FC<ReviewDisplayProps> = ({ productId, reviews, onReviewDel
     );
   };
 
+  // Show loading state while user data is being loaded
+  if (!isLoaded) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    );
+  }
+
   if (!reviews || reviews.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500">No reviews yet. Be the first to review this product!</p>
+        <p className="text-gray-500">No reviews yet. Be the first to review this service!</p>
       </div>
     );
   }
@@ -133,18 +144,20 @@ const ReviewDisplay: FC<ReviewDisplayProps> = ({ productId, reviews, onReviewDel
             <MediaCarousel images={review.images} />
 
             <div className="flex items-center justify-between mt-4 pt-4 border-t border-furniture-sand">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleHelpful(review._id?.toString() || '')}
-                className={`text-sm ${helpfulReviews.has(review._id?.toString() || '') ? 'text-furniture-brown' : 'text-gray-500 hover:text-furniture-brown'}`}
-              >
-                <ThumbsUp className={`w-4 h-4 mr-1 ${helpfulReviews.has(review._id?.toString() || '') ? 'fill-current' : ''}`} />
-                Helpful
-              </Button>
+              <div className="flex items-center space-x-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleHelpful(review._id?.toString() || '')}
+                  className={`text-sm ${helpfulReviews.has(review._id?.toString() || '') ? 'text-furniture-brown' : 'text-gray-500 hover:text-furniture-brown'}`}
+                >
+                  <ThumbsUp className={`w-4 h-4 mr-1 ${helpfulReviews.has(review._id?.toString() || '') ? 'fill-current' : ''}`} />
+                  Helpful
+                </Button>
+              </div>
               
               {/* Show delete button ONLY if the logged-in user is the author of the review */}
-              {((user && user.id === review.user.clerkId) || review.user.clerkId === 'test-user-id') && (
+              {user && user.id === review.user.clerkId && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -163,5 +176,4 @@ const ReviewDisplay: FC<ReviewDisplayProps> = ({ productId, reviews, onReviewDel
   );
 };
 
-export default ReviewDisplay;
-
+export default ServiceReviewDisplay;

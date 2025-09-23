@@ -68,7 +68,7 @@ export default async function CategoriesPage() {
               <div className="relative">
                 <Image
                   // Use the 'image' field from the category data, with a fallback to a placeholder.
-                    src={category.image ?? `https://placehold.co/600x400/EFE8E2/5A4A3A?text=${encodeURIComponent(category.name)}`}
+                    src={category.image ?? `/shop?category=${encodeURIComponent(category.name)}`}
                   alt={category.name}
                   width={600}
                   height={400}

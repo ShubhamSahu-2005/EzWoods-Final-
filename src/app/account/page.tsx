@@ -5,13 +5,52 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Package, Heart } from 'lucide-react';
+import { Package, Heart, Trash2 } from 'lucide-react';
 import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs';
+import { useWishlist } from '@/contexts/WishlistContext';
+import { useCart } from '@/contexts/CartContext';
+import { useToast } from '@/components/ui/use-toast';
 import Image from 'next/image';
+import Link from 'next/link';
+import { useState, useEffect } from 'react';
  
 
 const Account = () => {
- 
+  const { wishlist, removeFromWishlist, loading: wishlistLoading } = useWishlist();
+  const { addItem } = useCart();
+  const { toast } = useToast();
+  const [wishlistProducts, setWishlistProducts] = useState<any[]>([]);
+
+  // Fetch wishlist products
+  useEffect(() => {
+    const fetchWishlistProducts = async () => {
+      try {
+        const response = await fetch('/api/wishlist');
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            setWishlistProducts(result.data);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching wishlist products:', error);
+      }
+    };
+
+    fetchWishlistProducts();
+  }, [wishlist]);
+
+  const handleAddToCart = (product: any) => {
+    addItem(product, 1);
+    toast({
+      title: "Added to cart",
+      description: `${product.name} has been added to your cart.`,
+    });
+  };
+
+  const handleRemoveFromWishlist = async (productId: string) => {
+    await removeFromWishlist(productId);
+  };
 
   const orders = [
     {
@@ -37,20 +76,6 @@ const Account = () => {
     }
   ];
 
-  const wishlistItems = [
-    {
-      id: '5',
-      name: 'Vintage Armchair',
-      price: 649,
-      image: 'https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?w=200&h=200&fit=crop&crop=center'
-    },
-    {
-      id: '6',
-      name: 'Glass Coffee Table',
-      price: 399,
-      image: 'https://images.unsplash.com/photo-1449247709967-d4461a6a6103?w=200&h=200&fit=crop&crop=center'
-    }
-  ];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -140,31 +165,63 @@ const Account = () => {
               <CardTitle className="font-inter">My Wishlist</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {wishlistItems.map((item) => (
-                  <div key={item.id} className="border border-furniture-sand rounded-lg p-4">
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      width={300}
-                      height={192}
-                      className="w-full h-48 object-cover rounded-lg mb-4"
-                    />
-                    <h3 className="font-inter font-semibold mb-2">{item.name}</h3>
-                    <p className="font-playfair font-bold text-furniture-darkBrown mb-4">
-                      ₹{item.price}
-                    </p>
-                    <div className="flex space-x-2">
-                      <Button size="sm" className="flex-1 bg-furniture-brown hover:bg-furniture-darkBrown">
-                        Add to Cart
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        Remove
-                      </Button>
+              {wishlistLoading ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">Loading wishlist...</p>
+                </div>
+              ) : wishlistProducts.length === 0 ? (
+                <div className="text-center py-8">
+                  <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 mb-4">Your wishlist is empty</p>
+                  <Link href="/shop">
+                    <Button className="bg-furniture-brown hover:bg-furniture-darkBrown">
+                      Start Shopping
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {wishlistProducts.map((product) => (
+                    <div key={product._id} className="border border-furniture-sand rounded-lg p-4">
+                      <Link href={`/products/${product._id}`}>
+                        <Image
+                          src={product.images[0] || '/placeholder-image.svg'}
+                          alt={product.name}
+                          width={300}
+                          height={192}
+                          className="w-full h-48 object-cover rounded-lg mb-4 hover:opacity-90 transition-opacity"
+                        />
+                      </Link>
+                      <h3 className="font-inter font-semibold mb-2">{product.name}</h3>
+                      <p className="font-playfair font-bold text-furniture-darkBrown mb-4">
+                        ₹{product.price.original}
+                        {product.price.discounted && (
+                          <span className="text-sm text-gray-500 line-through ml-2">
+                            ₹{product.price.discounted}
+                          </span>
+                        )}
+                      </p>
+                      <div className="flex space-x-2">
+                        <Button 
+                          size="sm" 
+                          className="flex-1 bg-furniture-brown hover:bg-furniture-darkBrown"
+                          onClick={() => handleAddToCart(product)}
+                        >
+                          Add to Cart
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleRemoveFromWishlist(product._id)}
+                          disabled={wishlistLoading}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

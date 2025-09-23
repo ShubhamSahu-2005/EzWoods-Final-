@@ -136,7 +136,7 @@ const HomePage = async () => {
                 <Card className="overflow-hidden border-furniture-sand/50 group-hover:shadow-2xl transition-all duration-700 hover:-translate-y-3 bg-white/90 backdrop-blur-sm">
                   <div className="relative">
                     <Image
-                      src={category.image || `https://placehold.co/600x400/EFE8E2/5A4A3A?text=${encodeURIComponent(category.name)}`}
+                      src={category.image || '/placeholder-image.svg'}
                       alt={category.name}
                       width={500}
                       height={320}

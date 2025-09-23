@@ -3,7 +3,7 @@
 import { useState, FC } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Calendar, Clock, Star, ArrowLeft, CheckCircle } from 'lucide-react';
+import {  Clock, Star, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { IService } from '@/models/service';
+import { useUser } from '@clerk/nextjs';
+import ServiceReviewForm from './ServiceReviewForm';
+import ServiceReviewDisplay from './ServiceReviewDisplay';
 
 // Define a specific type for the form's data structure
 interface BookingFormData {
@@ -28,7 +31,12 @@ interface BookingFormData {
 
 const ServiceDetailClient: FC<{ service: IService }> = ({ service }) => {
   const { toast } = useToast();
+  const { user, isLoaded } = useUser();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [reviews, setReviews] = useState(service.reviews || []);
+
+  // Debug logging
+  console.log('ServiceDetailClient - User state:', { user, isLoaded, userId: user?.id });
   const [bookingData, setBookingData] = useState<BookingFormData>({
     name: '',
     email: '',
@@ -95,6 +103,44 @@ const ServiceDetailClient: FC<{ service: IService }> = ({ service }) => {
     }
   };
 
+  const handleReviewSubmit = async (reviewData: { rating: number; title: string; comment: string; images: string[] }) => {
+    try {
+      const response = await fetch(`/api/services/${service._id}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reviewData),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Add the new review to the local state
+        setReviews(prev => [...prev, result.data]);
+        toast({
+          title: "Review submitted successfully!",
+          description: "Thank you for your feedback.",
+        });
+      } else {
+        toast({
+          title: "Failed to submit review",
+          description: result.message || "Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to submit review:", error);
+      toast({
+        title: "Error",
+        description: "Could not submit your review. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleReviewDeleted = (reviewId: string) => {
+    setReviews(prev => prev.filter(review => review._id?.toString() !== reviewId));
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-furniture-cream via-white to-furniture-sand/30">
       <div className="bg-furniture-charcoal text-white py-6">
@@ -137,8 +183,8 @@ const ServiceDetailClient: FC<{ service: IService }> = ({ service }) => {
             <div className="flex items-center space-x-6">
               <div className="flex items-center space-x-2">
                 <Star className="w-5 h-5 text-yellow-500 fill-current" />
-                 <span className="font-medium">{service.reviews?.length ? (service.reviews.reduce((acc, review) => acc + review.rating, 0) / service.reviews.length).toFixed(1) : '0.0'}</span>
-                 <span className="text-furniture-charcoal/60">({service.reviews?.length || 0} reviews)</span>
+                 <span className="font-medium">{reviews?.length ? (reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length).toFixed(1) : '0.0'}</span>
+                 <span className="text-furniture-charcoal/60">({reviews?.length || 0} reviews)</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Clock className="w-5 h-5 text-furniture-brown" />
@@ -172,7 +218,7 @@ const ServiceDetailClient: FC<{ service: IService }> = ({ service }) => {
                 </CardTitle>
                 <div className="flex items-center justify-between">
                   <span className="text-3xl font-bold text-furniture-brown">
-                     {service.price}
+                  ₹{service.price}
                   </span>
                   <Badge variant="outline" className="text-furniture-brown border-furniture-brown">{service.category}</Badge>
                 </div>
@@ -247,6 +293,49 @@ const ServiceDetailClient: FC<{ service: IService }> = ({ service }) => {
                 </form>
               </CardContent>
             </Card>
+          </div>
+        </div>
+
+        {/* Reviews Section */}
+        <div className="mt-16">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl font-playfair font-bold text-furniture-charcoal mb-8">Customer Reviews</h2>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Reviews Display */}
+              <div className="lg:col-span-2">
+                <ServiceReviewDisplay 
+                  serviceId={service._id?.toString() || ''} 
+                  reviews={reviews} 
+                  onReviewDeleted={handleReviewDeleted}
+                />
+              </div>
+              
+              {/* Review Form */}
+              <div>
+                {user ? (
+                  <ServiceReviewForm 
+                    serviceId={service._id?.toString() || ''} 
+                    onSubmit={handleReviewSubmit}
+                  />
+                ) : (
+                  <Card className="border-furniture-sand">
+                    <CardContent className="p-6 text-center">
+                      <h3 className="font-playfair text-furniture-darkBrown mb-4">Sign in to leave a review</h3>
+                      <p className="text-furniture-charcoal/80 mb-4">
+                        Share your experience with this service to help other customers.
+                      </p>
+                      <Button 
+                        onClick={() => window.location.href = '/sign-in'}
+                        className="bg-furniture-brown hover:bg-furniture-darkBrown"
+                      >
+                        Sign In
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
