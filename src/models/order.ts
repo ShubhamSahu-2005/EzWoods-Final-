@@ -123,7 +123,7 @@ OrderSchema.pre('save', async function(next) {
     }
 
     // Create the initial "Order Created" event in the timeline
-    (this as any).orderTimeline.push({
+    (this as unknown as IOrder).orderTimeline.push({
       status: 'Order Created',
       timestamp: new Date(),
     });

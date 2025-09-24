@@ -1,20 +1,20 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import connectDB from '@/utils/connectDB';
 import { User } from '@/models/users';
-import { Product } from '@/models/product'; // Import Product to populate
+// Import Product to populate
 import { getAuth } from '@clerk/nextjs/server';
 import { ensureUserInDatabase } from '@/utils/userUtils';
 
 // --- GET: Fetch the user's full wishlist ---
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const session = getAuth(request as any);
+    const session = getAuth(request);
     if (!session || !session.userId) {
       return NextResponse.json({ success: false, message: 'Authentication required.' }, { status: 401 });
     }
 
     // Ensure user exists in MongoDB database
-    const user = await ensureUserInDatabase(request);
+    await ensureUserInDatabase(request);
 
     await connectDB();
 
@@ -36,15 +36,15 @@ export async function GET(request: Request) {
 
 
 // --- POST: Add or remove an item from the wishlist ---
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const session = getAuth(request as any);
+    const session = getAuth(request);
     if (!session || !session.userId) {
       return NextResponse.json({ success: false, message: 'Authentication required.' }, { status: 401 });
     }
 
     // Ensure user exists in MongoDB database
-    const user = await ensureUserInDatabase(request);
+    await ensureUserInDatabase(request);
 
     await connectDB();
     const { productId, action } = await request.json(); // action can be 'add' or 'remove'
