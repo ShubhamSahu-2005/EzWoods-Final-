@@ -3,7 +3,7 @@
 import { useState, FC } from 'react';
 import Image from 'next/image';
 import { useUser } from '@clerk/nextjs';
-import { Star, ThumbsUp, Calendar, CheckCircle, ChevronLeft, ChevronRight, Trash2, UserCircle } from 'lucide-react';
+import { Star, ThumbsUp, Calendar, ChevronLeft, ChevronRight, Trash2, UserCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -46,7 +46,7 @@ const ServiceReviewDisplay: FC<ServiceReviewDisplayProps> = ({ serviceId, review
       } else {
         toast({ title: 'Error Deleting Review', description: result.message, variant: 'destructive' });
       }
-    } catch (error) {
+    } catch {
       toast({ title: 'Error', description: 'Could not connect to the server to delete review.', variant: 'destructive' });
     }
   };
@@ -58,6 +58,7 @@ const ServiceReviewDisplay: FC<ServiceReviewDisplayProps> = ({ serviceId, review
       return newSet;
     });
     // In a real app, you would also send this "helpful" action to an API endpoint
+    console.log('Helpful clicked for review:', reviewId);
   };
 
   const MediaCarousel = ({ images }: { images?: string[] }) => {
@@ -126,7 +127,7 @@ const ServiceReviewDisplay: FC<ServiceReviewDisplayProps> = ({ serviceId, review
                   </div>
                   <div className="flex items-center space-x-2 text-xs text-gray-500">
                     <Calendar className="w-3 h-3" />
-                    <span>{formatDate((review as any).createdAt || new Date().toISOString())}</span>
+                    <span>{formatDate((review as { createdAt?: string }).createdAt || new Date().toISOString())}</span>
                   </div>
                 </div>
               </div>

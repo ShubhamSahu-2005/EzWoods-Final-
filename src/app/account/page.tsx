@@ -10,6 +10,7 @@ import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/components/ui/use-toast';
+import { IProduct } from '@/models/product';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
@@ -19,7 +20,15 @@ const Account = () => {
   const { wishlist, removeFromWishlist, loading: wishlistLoading } = useWishlist();
   const { addItem } = useCart();
   const { toast } = useToast();
-  const [wishlistProducts, setWishlistProducts] = useState<any[]>([]);
+  const [wishlistProducts, setWishlistProducts] = useState<Array<{
+    _id: string;
+    name: string;
+    images: string[];
+    price: {
+      original: number;
+      discounted?: number;
+    };
+  }>>([]);
 
   // Fetch wishlist products
   useEffect(() => {
@@ -40,8 +49,31 @@ const Account = () => {
     fetchWishlistProducts();
   }, [wishlist]);
 
-  const handleAddToCart = (product: any) => {
-    addItem(product, 1);
+  const handleAddToCart = (product: {
+    _id: string;
+    name: string;
+    images: string[];
+    price: {
+      original: number;
+      discounted?: number;
+    };
+  }) => {
+    // Create a minimal IProduct-compatible object
+    const productForCart = {
+      _id: product._id,
+      name: product.name,
+      description: '',
+      category: '',
+      categoryName: '',
+      price: product.price,
+      stock: 1,
+      dimensions: { height: 0, width: 0, depth: 0, unit: 'cm' },
+      material: [],
+      images: product.images,
+      status: 'active' as const,
+      reviews: []
+    };
+    addItem(productForCart as unknown as IProduct, 1);
     toast({
       title: "Added to cart",
       description: `${product.name} has been added to your cart.`,

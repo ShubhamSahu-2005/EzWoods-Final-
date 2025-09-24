@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import connectDB from '@/utils/connectDB';
 import { Service } from '@/models/service';
 import { currentUser, getAuth } from '@clerk/nextjs/server';
@@ -19,7 +19,7 @@ interface RouteContext {
 }
 
 // --- POST: Add a new review to a service ---
-export async function POST(request: Request, { params }: RouteContext) {
+export async function POST(request: NextRequest, { params }: RouteContext) {
   try {
     const user = await currentUser();
     if (!user || !user.id) {
@@ -65,16 +65,16 @@ export async function POST(request: Request, { params }: RouteContext) {
     console.log('Current service reviews count:', service.reviews.length);
     
     // Check existing reviews for clerkId issues
-    const reviewsWithoutClerkId = service.reviews.filter((review: any) => !review.user.clerkId);
+    const reviewsWithoutClerkId = service.reviews.filter((review: { user: { clerkId?: string } }) => !review.user.clerkId);
     if (reviewsWithoutClerkId.length > 0) {
       console.log('Found reviews without clerkId:', reviewsWithoutClerkId.length);
       // Fix existing reviews by adding a default clerkId
-      reviewsWithoutClerkId.forEach((review: any) => {
+      reviewsWithoutClerkId.forEach((review: { user: { clerkId?: string } }) => {
         review.user.clerkId = 'legacy-user';
       });
     }
 
-    service.reviews.push(newReview as any);
+    service.reviews.push(newReview);
     console.log('About to save service with reviews...');
     await service.save();
     console.log('Service saved successfully!');
@@ -97,10 +97,10 @@ export async function POST(request: Request, { params }: RouteContext) {
 }
 
 // --- DELETE: Remove a review from a service ---
-export async function DELETE(request: Request, { params }: RouteContext) {
+export async function DELETE(request: NextRequest, { params }: RouteContext) {
   try {
-    const user = getAuth(request as any);
-    if (!user || !user.userId) {
+    const session = getAuth(request);
+    if (!session || !session.userId) {
       return NextResponse.json({ success: false, message: 'Authentication required.' }, { status: 401 });
     }
 
@@ -123,7 +123,7 @@ export async function DELETE(request: Request, { params }: RouteContext) {
     }
 
     // CRITICAL SECURITY CHECK: Ensure the user deleting the review is the one who created it.
-    if (review.user.clerkId !== user.userId) {
+    if (review.user.clerkId !== session.userId) {
       return NextResponse.json({ success: false, message: 'You are not authorized to delete this review.' }, { status: 403 });
     }
     

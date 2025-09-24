@@ -61,8 +61,8 @@ const Cart = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Cart Items */}
         <div className="lg:col-span-2 space-y-4">
-          {state.items.map((item) => (
-            <Card key={`${item.product.id}-${item.selectedColor}`} className="border-furniture-sand">
+          {state.items.map((item, index) => (
+            <Card key={`${item.product._id || index}-${item.selectedColor || 'default'}`} className="border-furniture-sand">
               <CardContent className="p-6">
                 <div className="flex flex-col sm:flex-row gap-4">
                   {/* Product Image */}
@@ -91,7 +91,7 @@ const Cart = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => removeItem(item.product.id)}
+                        onClick={() => removeItem(item.product._id?.toString() || '')}
                         className="text-red-500 hover:text-red-700"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -104,7 +104,7 @@ const Cart = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          onClick={() => updateQuantity(item.product._id?.toString() || '', item.quantity - 1)}
                           disabled={item.quantity <= 1}
                         >
                           <Minus className="w-4 h-4" />
@@ -115,7 +115,7 @@ const Cart = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                          onClick={() => updateQuantity(item.product._id?.toString() || '', item.quantity + 1)}
                         >
                           <Plus className="w-4 h-4" />
                         </Button>

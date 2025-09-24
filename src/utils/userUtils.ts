@@ -1,14 +1,15 @@
 import { getAuth, currentUser } from '@clerk/nextjs/server';
 import connectDB from '@/utils/connectDB';
 import { User } from '@/models/users';
+import { NextRequest } from 'next/server';
 
 /**
  * Ensures user data exists in MongoDB and returns the user document
  * This function will create the user if they don't exist in the database
  */
-export async function ensureUserInDatabase(request: Request) {
+export async function ensureUserInDatabase(request: NextRequest) {
   try {
-    const session = getAuth(request as any);
+    const session = getAuth(request);
     if (!session || !session.userId) {
       throw new Error('Authentication required');
     }

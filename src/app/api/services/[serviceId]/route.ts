@@ -4,9 +4,9 @@ import { Service } from '@/models/service'; // Adjust path if your models folder
 
 // This interface defines the shape of the context object provided by Next.js
 interface IParams {
-  params: {
+  params: Promise<{
     serviceId: string;
-  };
+  }>;
 }
 
 // This function handles GET requests to /api/services/{serviceId}
@@ -14,7 +14,7 @@ export async function GET(request: Request, { params }: IParams) {
   try {
     await connectDB();
 
-    const { serviceId } = params;
+    const { serviceId } = await params;
 
     // Check if the provided ID is a valid MongoDB ObjectId
     if (!serviceId.match(/^[0-9a-fA-F]{24}$/)) {

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import connectDB from '@/utils/connectDB';
 import { Product } from '@/models/product';
 import { getAuth, currentUser } from '@clerk/nextjs/server';
@@ -19,15 +19,15 @@ interface IParams {
 }
 
 // --- POST: Add a new review to a product ---
-export async function POST(request: Request, { params }: IParams) {
+export async function POST(request: NextRequest, { params }: IParams) {
   try {
-    const session = getAuth(request as any);
+    const session = getAuth(request);
     if (!session || !session.userId) {
       return NextResponse.json({ success: false, message: 'Authentication required.' }, { status: 401 });
     }
 
     // Ensure user exists in MongoDB database
-    const dbUser = await ensureUserInDatabase(request);
+    await ensureUserInDatabase(request);
     const user = await currentUser();
     
     console.log('Session userId:', session.userId);
@@ -93,7 +93,7 @@ export async function POST(request: Request, { params }: IParams) {
     console.log('Current product reviews count:', product.reviews.length);
     console.log('Existing reviews:', JSON.stringify(product.reviews, null, 2));
 
-    product.reviews.push(newReview as any);
+    product.reviews.push(newReview);
     console.log('About to save product with reviews...');
     await product.save();
     console.log('Product saved successfully!');
@@ -116,9 +116,9 @@ export async function POST(request: Request, { params }: IParams) {
 
 
 // --- DELETE: Remove a review from a product ---
-export async function DELETE(request: Request, { params }: IParams) {
+export async function DELETE(request: NextRequest, { params }: IParams) {
   try {
-    const session = getAuth(request as any);
+    const session = getAuth(request);
     if (!session || !session.userId) {
       return NextResponse.json({ success: false, message: 'Authentication required.' }, { status: 401 });
     }

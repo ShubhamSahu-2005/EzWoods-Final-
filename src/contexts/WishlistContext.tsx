@@ -49,7 +49,7 @@ export const WishlistProvider: React.FC<WishlistProviderProps> = ({ children }) 
         const result = await response.json();
         if (result.success) {
           // Extract product IDs from the populated wishlist
-          const productIds = result.data.map((item: any) => item._id || item.id);
+          const productIds = result.data.map((item: { _id?: string; id?: string }) => item._id || item.id);
           setWishlist(productIds);
         }
       }

@@ -23,7 +23,7 @@ interface ServiceReviewFormProps {
   onSubmit: (reviewData: ReviewSubmitData) => void;
 }
 
-const ServiceReviewForm: FC<ServiceReviewFormProps> = ({ serviceId, onSubmit }) => {
+const ServiceReviewForm: FC<ServiceReviewFormProps> = ({ onSubmit }) => {
   const { toast } = useToast();
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
