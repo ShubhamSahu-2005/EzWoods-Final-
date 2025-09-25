@@ -13,8 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/components/ui/use-toast';
+// import { IProduct } from '@/models/product';
 
-// Define the shape of the form data for type safety
 interface FormData {
   email: string;
   firstName: string;
@@ -27,35 +27,42 @@ interface FormData {
   paymentMethod: 'razorpay' | 'cod';
 }
 
-// Define the Razorpay window object
 declare global {
   interface Window {
-    Razorpay: new (options: {
-      key: string;
-      amount: number;
-      currency: string;
-      name: string;
-      description: string;
-      handler: (response: RazorpaySuccessResponse) => void;
-      prefill: {
+    Razorpay: {
+      new (options: {
+        key: string;
+        amount: number;
+        currency: string;
         name: string;
-        email: string;
+        description: string;
+        order_id: string;
+        handler: (response: RazorpaySuccessResponse) => void;
+        prefill: { name: string; email: string };
+        theme: { color: string };
+        modal: { ondismiss: () => void };
+      }): {
+        open: () => void;
       };
-      theme: { color: string };
-      modal: {
-        ondismiss: () => void;
-      };
-    }) => {
-      open: () => void;
     };
   }
 }
 
-// Define a specific type for the Razorpay success response
 interface RazorpaySuccessResponse {
   razorpay_payment_id: string;
   razorpay_order_id: string;
   razorpay_signature: string;
+}
+
+interface CartItem {
+  product: {
+    _id: unknown;
+    name: string;
+    images: string[];
+    price: { original: number };
+  };
+  quantity: number;
+  selectedColor?: string;
 }
 
 const CheckoutPage: FC = () => {
@@ -64,17 +71,6 @@ const CheckoutPage: FC = () => {
   const { toast } = useToast();
   const { user } = useUser();
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // Helper function to safely get product price
-  const getProductPrice = (product: { price?: { original?: number } | number }): number => {
-    if (product.price && typeof product.price === 'object' && 'original' in product.price && typeof product.price.original === 'number') {
-      return product.price.original;
-    }
-    if (typeof product.price === 'number') {
-      return product.price;
-    }
-    return 0;
-  };
 
   const [formData, setFormData] = useState<FormData>({
     email: '',
@@ -88,7 +84,6 @@ const CheckoutPage: FC = () => {
     paymentMethod: 'razorpay'
   });
   
-  // Pre-fill form with user data from Clerk when available
   useEffect(() => {
     if (user) {
       setFormData(prev => ({
@@ -104,10 +99,9 @@ const CheckoutPage: FC = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const subtotal = state.total;
+  const subtotal = state.items.reduce((acc, item) => acc + (item.product.price.original * item.quantity), 0);
   const shipping = subtotal >= 500 ? 0 : 50;
-  const tax = subtotal * 0.08;
-  const total = subtotal + shipping + tax;
+  const total = subtotal + shipping;
 
   const makePayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,72 +112,68 @@ const CheckoutPage: FC = () => {
     }
 
     setIsProcessing(true);
-    const amountToPay = formData.paymentMethod === 'cod' ? total * 0.25 : total;
 
-    // Construct the full order data object
-    const orderData = {
-      customer: {
-        email: formData.email,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-      },
-      shippingAddress: {
-        address: formData.address,
-        city: formData.city,
-        state: formData.state,
-        zipCode: formData.zipCode,
-        country: formData.country
-      },
-      items: state.items,
-      pricing: { subtotal, shipping, tax, total },
-      paymentMethod: formData.paymentMethod,
-    };
-    console.log("Submitting Order to Backend:", orderData);
+    try {
+      // Step 1: Create the order on your server to get a secure Razorpay order ID
+      const orderDetails = {
+          formData,
+          items: state.items,
+          pricing: { subtotal, shipping, total }
+      };
+      const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderDetails })
+      });
+      const { success, order, razorpayOrder } = await res.json();
 
-    const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-    if (!razorpayKey) {
-      toast({ title: "Payment configuration error.", variant: "destructive" });
-      setIsProcessing(false);
-      return;
-    }
-
-    const options = {
-      key: razorpayKey,
-      amount: Math.round(amountToPay * 100),
-      currency: "INR",
-      name: "Luxe Home",
-      description: `Order Payment: ${formData.paymentMethod === 'cod' ? '25% Advance' : 'Full Amount'}`,
-      handler: function (response: RazorpaySuccessResponse) {
-        console.log("Payment Successful:", response);
-        toast({
-          title: "Order placed successfully!",
-          description: "Thank you for your purchase. We'll send a confirmation email.",
-        });
-        clearCart();
-        router.push('/order-confirmation'); // Redirect to a confirmation page
-        setIsProcessing(false);
-      },
-      prefill: {
-        name: `${formData.firstName} ${formData.lastName}`,
-        email: formData.email,
-      },
-      theme: { color: "#5a4a3a" },
-      modal: {
-        ondismiss: function() {
-          console.log('Payment modal dismissed');
-          setIsProcessing(false);
-        }
+      if (!success) {
+          throw new Error(order.message || "Failed to create order on server.");
       }
-    };
-    
-    if (!window.Razorpay) {
-      toast({ title: "Payment gateway is not loaded yet.", variant: "destructive" });
-      setIsProcessing(false);
-      return;
-    }
 
-    const rzp = new window.Razorpay(options);
-    rzp.open();
+      // Step 2: Open the Razorpay payment modal with the server-provided order ID
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+        name: "Luxe Home",
+        description: `Order Payment for #${order._id.slice(-6)}`,
+        order_id: razorpayOrder.id,
+        handler: async function (response: RazorpaySuccessResponse) {
+          // Step 3: Verify the payment on your server
+          const verifyRes = await fetch('/api/payment/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...response, orderId: order._id })
+          });
+
+          const verifyResult = await verifyRes.json();
+          if (verifyResult.success) {
+              toast({ title: "Order placed successfully!", description: "Thank you for your purchase." });
+              clearCart();
+              // Redirect to the correct confirmation page
+              router.push(`/order-confirmation/${verifyResult.orderId}`);
+          } else {
+              toast({ title: "Payment verification failed", description: verifyResult.message, variant: "destructive" });
+              setIsProcessing(false);
+          }
+        },
+        prefill: {
+          name: `${formData.firstName} ${formData.lastName}`,
+          email: formData.email,
+        },
+        theme: { color: "#5a4a3a" },
+        modal: { ondismiss: () => setIsProcessing(false) }
+      };
+      
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+
+    } catch (error) {
+        console.error("Payment initiation failed:", error);
+        toast({ title: "An error occurred", description: "Could not initiate payment.", variant: "destructive" });
+        setIsProcessing(false);
+    }
   };
 
   if (state.items.length === 0 && !isProcessing) {
@@ -199,10 +189,7 @@ const CheckoutPage: FC = () => {
 
   return (
     <>
-      <Script
-        id="razorpay-checkout-js"
-        src="https://checkout.razorpay.com/v1/checkout.js"
-      />
+      <Script id="razorpay-checkout-js" src="https://checkout.razorpay.com/v1/checkout.js" />
       <div className="container mx-auto px-4 py-8">
         <h1 className="font-playfair text-3xl font-bold text-furniture-darkBrown mb-8">
           Checkout
@@ -267,18 +254,18 @@ const CheckoutPage: FC = () => {
               <Card className="border-furniture-sand">
                 <CardHeader><CardTitle className="font-inter">Payment Method</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
-                    <div className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-furniture-cream/30 transition-colors ${formData.paymentMethod === 'razorpay' ? 'border-furniture-brown ring-2 ring-furniture-brown' : 'border-furniture-sand'}`} onClick={() => handleInputChange('paymentMethod', 'razorpay')}>
-                        <input type="radio" name="paymentMethod" value="razorpay" checked={formData.paymentMethod === 'razorpay'} onChange={() => {}} className="text-furniture-brown focus:ring-furniture-brown"/>
+                    <div className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer ${formData.paymentMethod === 'razorpay' ? 'border-furniture-brown ring-2 ring-furniture-brown' : 'border-furniture-sand'}`} onClick={() => handleInputChange('paymentMethod', 'razorpay')}>
+                        <input type="radio" name="paymentMethod" value="razorpay" checked={formData.paymentMethod === 'razorpay'} onChange={() => {}}/>
                         <div className="flex-1">
-                            <h4 className="font-inter font-medium">Pay Full Amount Online</h4>
-                            <p className="text-sm text-gray-600">Securely pay with UPI, Card, or Net Banking.</p>
+                            <h4 className="font-medium">Pay Full Amount Online</h4>
+                            <p className="text-sm text-gray-600">UPI, Card, Net Banking.</p>
                         </div>
                     </div>
-                    <div className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-furniture-cream/30 transition-colors ${formData.paymentMethod === 'cod' ? 'border-furniture-brown ring-2 ring-furniture-brown' : 'border-furniture-sand'}`} onClick={() => handleInputChange('paymentMethod', 'cod')}>
-                        <input type="radio" name="paymentMethod" value="cod" checked={formData.paymentMethod === 'cod'} onChange={() => {}} className="text-furniture-brown focus:ring-furniture-brown"/>
+                    <div className={`flex items-center space-x-3 p-4 border rounded-lg cursor-pointer ${formData.paymentMethod === 'cod' ? 'border-furniture-brown ring-2 ring-furniture-brown' : 'border-furniture-sand'}`} onClick={() => handleInputChange('paymentMethod', 'cod')}>
+                        <input type="radio" name="paymentMethod" value="cod" checked={formData.paymentMethod === 'cod'} onChange={() => {}}/>
                         <div className="flex-1">
-                            <h4 className="font-inter font-medium">Cash on Delivery</h4>
-                            <p className="text-sm text-gray-600">Pay 25% advance now, remaining on delivery.</p>
+                            <h4 className="font-medium">Cash on Delivery</h4>
+                            <p className="text-sm text-gray-600">Pay 25% advance now.</p>
                         </div>
                     </div>
                 </CardContent>
@@ -291,28 +278,27 @@ const CheckoutPage: FC = () => {
                 <CardHeader><CardTitle className="font-inter">Order Summary</CardTitle></CardHeader>
                 <CardContent>
                   <div className="space-y-4 mb-6">
-                    {state.items.map((item, idx) => (
-                      <div key={item.product._id?.toString() ?? idx} className="flex items-center space-x-4">
+                    {state.items.map((item: CartItem) => (
+                      <div key={String(item.product._id)} className="flex items-center space-x-4">
                         <Image src={item.product.images[0]} alt={item.product.name} width={64} height={64} className="w-16 h-16 object-cover rounded"/>
                         <div className="flex-1">
                           <h4 className="font-inter font-medium text-sm">{item.product.name}</h4>
                           <p className="text-xs text-gray-600">Qty: {item.quantity}</p>
                         </div>
-                        <span className="font-inter font-medium">₹{(getProductPrice(item.product) * item.quantity).toFixed(2)}</span>
+                        <span className="font-inter font-medium">₹{(item.product.price.original * item.quantity).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
                   <Separator className="my-4" />
                   <div className="space-y-2">
-                    <div className="flex justify-between"><span className="text-gray-600">Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-600">Shipping</span><span>{shipping === 0 ? 'Free' : `₹${shipping.toFixed(2)}`}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-600">Tax (8%)</span><span>₹{tax.toFixed(2)}</span></div>
+                    <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
+                    <div className="flex justify-between"><span>Shipping</span><span>{shipping === 0 ? 'Free' : `₹${shipping.toFixed(2)}`}</span></div>
                     <Separator className="my-2" />
                     <div className="flex justify-between font-semibold"><span>Total</span><span className="text-lg">₹{total.toFixed(2)}</span></div>
                   </div>
                    {formData.paymentMethod === 'cod' && (
                      <div className="mt-4 p-3 bg-furniture-cream/50 rounded-md text-center">
-                        <p className="text-sm text-furniture-charcoal">Advance Payment (25%)</p>
+                        <p className="text-sm">Advance Payment (25%)</p>
                         <p className="font-bold text-lg text-furniture-brown">₹{(total * 0.25).toFixed(2)}</p>
                      </div>
                    )}
@@ -330,3 +316,4 @@ const CheckoutPage: FC = () => {
 };
 
 export default CheckoutPage;
+
