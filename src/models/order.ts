@@ -1,143 +1,91 @@
-// File: models/order.ts
 
-import mongoose, { Schema, Document } from 'mongoose';
-import { IProduct } from './product'; // Now only references the Product model
+import mongoose, { Schema, Document, Types } from 'mongoose';
 
-// --- Interface Definitions for Type Safety ---
+// Define the shape of a single item within an order
+const OrderItemSchema = new Schema({
+  productId: { type: Types.ObjectId, ref: 'Product', required: true },
+  name: { type: String, required: true },
+  image: { type: String },
+  price: { type: Number, required: true },
+  quantity: { type: Number, required: true },
+  selectedColor: { type: String },
+}, { _id: false });
 
-// Interface for the customer's details
-export interface ICustomerDetails {
-  name: string;
-  email: string;
-  phone: string;
-}
-
-// Interface for a single item within an order (now only for Products)
-export interface IOrderItem {
-  item: IProduct['_id']; // Reference is strictly to a Product
-  name: string; // Denormalized for easy display
-  quantity: number;
-  price: number; // Price at the time of purchase
-}
-
-// Interface for payment information
-export interface IPaymentInfo {
-  paymentMethod: string;
-  paymentStatus: 'Pending' | 'Paid' | 'Failed' | 'Refunded';
-  totalAmount: number;
-}
-
-// Interface for an event in the order's timeline
-export interface ITimelineEvent {
-  status: string;
-  timestamp: Date;
-  notes?: string;
-}
-
-// Main interface for the Order document
 export interface IOrder extends Document {
   orderId: string;
-  customerDetails: ICustomerDetails;
-  deliveryAddress: string;
-  orderItems: IOrderItem[];
-  paymentInfo: IPaymentInfo;
-  orderNotes?: string;
-  orderTimeline: ITimelineEvent[];
-  orderStatus: 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
+  user: {
+    clerkId: string;
+    email: string;
+    fullName: string;
+  };
+  items: Array<{
+    productId: Types.ObjectId;
+    name: string;
+    image: string;
+    price: number;
+    quantity: number;
+    selectedColor?: string;
+  }>;
+  shippingAddress: {
+    address: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+  };
+  pricing: {
+    subtotal: number;
+    shipping: number;
+    tax?: number;
+    total: number;
+  };
+  payment: {
+    method: 'razorpay' | 'cod';
+    status: 'pending' | 'paid' | 'failed';
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
+    razorpaySignature?: string;
+  };
+  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 }
 
-// --- Mongoose Schemas ---
-
-const CustomerDetailsSchema: Schema = new Schema({
-  name: { type: String, required: true, trim: true },
-  email: { type: String, required: true, trim: true, lowercase: true },
-  phone: { type: String, required: true, trim: true },
-}, { _id: false });
-
-const OrderItemSchema: Schema = new Schema({
-  // The 'ref' is now directly set to 'Product'
-  item: { type: Schema.Types.ObjectId, required: true, ref: 'Product' },
-  name: { type: String, required: true },
-  quantity: { type: Number, required: true, min: 1 },
-  price: { type: Number, required: true },
-}, { _id: false });
-
-const PaymentInfoSchema: Schema = new Schema({
-  paymentMethod: { type: String, required: true },
-  paymentStatus: {
-    type: String,
-    required: true,
-    enum: ['Pending', 'Paid', 'Failed', 'Refunded'],
-    default: 'Pending',
-  },
-  totalAmount: { type: Number, required: true },
-}, { _id: false });
-
-const TimelineEventSchema: Schema = new Schema({
-  status: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now },
-  notes: { type: String },
-}, { _id: false });
-
-// The main schema for the Order model
 const OrderSchema: Schema = new Schema({
-  orderId: {
-    type: String,
-    unique: true,
+  orderId: { type: String, required: true, unique: true },
+  user: {
+    clerkId: { type: String, required: true },
+    email: { type: String, required: true },
+    fullName: { type: String, required: true },
   },
-  customerDetails: {
-    type: CustomerDetailsSchema,
-    required: true,
+  items: [OrderItemSchema],
+  shippingAddress: {
+    address: { type: String, required: true },
+    city: { type: String, required: true },
+    state: { type: String, required: true },
+    zipCode: { type: String, required: true },
+    country: { type: String, required: true },
   },
-  deliveryAddress: {
-    type: String,
-    required: true,
-    trim: true,
+  pricing: {
+    subtotal: { type: Number, required: true },
+    shipping: { type: Number, required: true },
+    tax: { type: Number, required: false, default: 0 },
+    total: { type: Number, required: true },
   },
-  orderItems: [OrderItemSchema],
-  paymentInfo: {
-    type: PaymentInfoSchema,
-    required: true,
+  payment: {
+    method: { type: String, required: true, enum: ['razorpay', 'cod'] },
+    status: { type: String, required: true, default: 'pending', enum: ['pending', 'paid', 'failed'] },
+    razorpayOrderId: { type: String },
+    razorpayPaymentId: { type: String },
+    razorpaySignature: { type: String },
   },
-  orderNotes: {
-    type: String,
-    trim: true,
-  },
-  orderTimeline: [TimelineEventSchema],
-  orderStatus: {
-    type: String,
-    required: true,
-    enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
-    default: 'Pending',
-  },
+  status: { type: String, required: true, default: 'pending', enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'] },
 }, {
-  timestamps: true // Adds createdAt and updatedAt timestamps
+  timestamps: true,
 });
 
-// Mongoose pre-save hook to generate a custom order ID and initial timeline event
-OrderSchema.pre('save', async function(next) {
-  if (this.isNew) {
-    // FIX: Ensure the orderTimeline array is initialized before pushing to it.
-    if (!this.orderTimeline) {
-      this.orderTimeline = [];
-    }
+// Force recompilation of the model to pick up schema changes
+if (mongoose.models.Order) {
+  delete mongoose.models.Order;
+}
 
-    // Create the initial "Order Created" event in the timeline
-    (this as unknown as IOrder).orderTimeline.push({
-      status: 'Order Created',
-      timestamp: new Date(),
-    });
+export const Order = mongoose.model<IOrder>('Order', OrderSchema);
 
-    // Generate a unique, human-readable order ID
-    const date = new Date();
-    const year = date.getFullYear().toString().slice(-2);
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    // A simple way to get a unique sequence, you might use a dedicated counter in production
-    const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
-    this.orderId = `ORD-${year}${month}-${randomPart}`;
-  }
-  next();
-});
-
-// Prevent model overwrite in Next.js hot-reloading environment
-export const Order = mongoose.models.Order || mongoose.model<IOrder>('Order', OrderSchema);
