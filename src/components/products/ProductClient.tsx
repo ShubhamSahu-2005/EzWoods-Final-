@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Star, Heart, Truck, Shield, RotateCcw, Plus, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,9 +24,10 @@ interface ReviewFormData {
 }
 
 const ProductClient = ({ product, productId }: { product: IProduct; productId: string }) => {
-  const { addItem } = useCart();
+  const { addItem, clearCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist, loading: wishlistLoading } = useWishlist();
   const { toast } = useToast();
+  const router = useRouter();
   
   const [selectedImage, setSelectedImage] = useState(0);
   // Safely initialize selectedColor from the product's material array
@@ -49,6 +51,19 @@ const ProductClient = ({ product, productId }: { product: IProduct; productId: s
     toast({
       title: "Added to cart",
       description: `${quantity} x ${product.name} has been added to your cart.`,
+    });
+  };
+
+  const handleBuyNow = () => {
+    // Clear the cart first to ensure only this product is in the cart
+    clearCart();
+    // Add the product to cart
+    addItem(product, quantity, selectedColor);
+    // Navigate to checkout
+    router.push('/checkout');
+    toast({
+      title: "Proceeding to checkout",
+      description: `${quantity} x ${product.name} added to cart.`,
     });
   };
 
@@ -191,18 +206,32 @@ const ProductClient = ({ product, productId }: { product: IProduct; productId: s
             </div>
           </div>
 
-          <div className="flex space-x-4 pt-2">
-            <Button onClick={handleAddToCart} disabled={product.stock <= 0} className="flex-1 bg-furniture-brown hover:bg-furniture-darkBrown font-inter" size="lg">
-              {product.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
-            </Button>
+          <div className="space-y-4 pt-2">
+            <div className="flex space-x-4">
+              <Button onClick={handleAddToCart} disabled={product.stock <= 0} className="flex-1 bg-furniture-brown hover:bg-furniture-darkBrown font-inter" size="lg">
+                {product.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
+              </Button>
+              <Button 
+                variant="outline" 
+                size="lg" 
+                onClick={handleWishlistToggle} 
+                disabled={wishlistLoading}
+                className="px-6"
+              >
+                <Heart className={`w-5 h-5 transition-all duration-300 ${isInWishlistProduct ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
+              </Button>
+            </div>
             <Button 
-              variant="outline" 
-              size="lg" 
-              onClick={handleWishlistToggle} 
-              disabled={wishlistLoading}
-              className="px-6"
+              onClick={handleBuyNow} 
+              disabled={product.stock <= 0} 
+              className="w-full font-inter" 
+              size="lg"
+              style={{ 
+                backgroundColor: product.stock > 0 ? '#a7c957' : undefined,
+                color: product.stock > 0 ? 'white' : undefined
+              }}
             >
-              <Heart className={`w-5 h-5 transition-all duration-300 ${isInWishlistProduct ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
+              {product.stock > 0 ? 'Buy Now' : 'Out of Stock'}
             </Button>
           </div>
           
