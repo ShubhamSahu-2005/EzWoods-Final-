@@ -84,26 +84,6 @@ const HomePage = async () => {
     <div className="animate-fade-in">
       <HeroSection />
 
-      {/* Features Section */}
-      <section className="py-20 bg-gradient-to-b from-white to-furniture-cream/30">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => (
-              <Card key={index} className="text-center border-furniture-sand/50 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-2 group">
-                <CardContent className="p-8">
-                  <div className="relative inline-block mb-6">
-                    <feature.icon className="w-12 h-12 text-furniture-sage mx-auto group-hover:scale-110 transition-all duration-300 group-hover:text-furniture-brown" />
-                    <div className="absolute inset-0 bg-furniture-sage/20 rounded-full scale-0 group-hover:scale-150 transition-transform duration-500"></div>
-                  </div>
-                  <h3 className="font-inter font-semibold text-furniture-darkBrown mb-3 group-hover:text-furniture-brown transition-colors duration-300">{feature.title}</h3>
-                  <p className="text-sm text-gray-600 font-inter leading-relaxed">{feature.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Featured Products Section */}
       <section className="py-20 bg-gradient-to-b from-furniture-cream/30 to-white">
         <div className="container mx-auto px-4">
@@ -151,6 +131,31 @@ const HomePage = async () => {
                   </div>
                 </Card>
               </Link>
+            ))}
+          </div>
+          
+        </div>
+      </section>
+
+      {/* Features Section - Moved to bottom */}
+      <section className="py-20 bg-gradient-to-b from-furniture-cream/20 to-furniture-cream/40">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="font-playfair text-5xl font-bold text-furniture-darkBrown mb-6">Why Choose Us</h2>
+            <div className="w-24 h-1 bg-gradient-to-r from-furniture-brown to-furniture-sage mx-auto"></div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {features.map((feature, index) => (
+              <Card key={index} className="text-center border-furniture-sand/50 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-2 group">
+                <CardContent className="p-8">
+                  <div className="relative inline-block mb-6">
+                    <feature.icon className="w-12 h-12 text-furniture-sage mx-auto group-hover:scale-110 transition-all duration-300 group-hover:text-furniture-brown" />
+                    <div className="absolute inset-0 bg-furniture-sage/20 rounded-full scale-0 group-hover:scale-150 transition-transform duration-500"></div>
+                  </div>
+                  <h3 className="font-inter font-semibold text-furniture-darkBrown mb-3 group-hover:text-furniture-brown transition-colors duration-300">{feature.title}</h3>
+                  <p className="text-sm text-gray-600 font-inter leading-relaxed">{feature.description}</p>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </div>
